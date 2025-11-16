@@ -4,7 +4,31 @@ const polishButton = document.getElementById("polishButton");
 const copyButton = document.getElementById("copyButton");
 const statusMessage = document.getElementById("statusMessage");
 
-polishButton.addEventListener("click", () => {
+function setLoading(isLoading) {
+  polishButton.disabled = isLoading;
+  polishButton.textContent = isLoading ? "Polishing…" : "Polish my prompt";
+}
+
+async function callPolishAPI(rawPrompt) {
+  const response = await fetch("/api/polish", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ prompt: rawPrompt }),
+  });
+
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    const msg = data.error || "Unknown error from server.";
+    throw new Error(msg);
+  }
+
+  const data = await response.json();
+  return data.polishedPrompt;
+}
+
+polishButton.addEventListener("click", async () => {
   const raw = inputEl.value.trim();
 
   if (!raw) {
@@ -12,27 +36,20 @@ polishButton.addEventListener("click", () => {
     return;
   }
 
-  statusMessage.textContent = "Polishing (dummy mode)…";
+  setLoading(true);
+  statusMessage.textContent = "Calling PromptPolish AI…";
 
-  // Dummy transformation for now
-  const polished = `## Goal
-
-Describe clearly what you want:
-
-${raw}
-
----
-
-## Additional context
-
-(Add any extra details here.)
-
-## Output format
-
-(Describe how you want the answer structured.)`;
-
-  outputEl.value = polished;
-  statusMessage.textContent = "Done (this is a fake polish – real AI coming soon).";
+  try {
+    const polished = await callPolishAPI(raw);
+    outputEl.value = polished;
+    statusMessage.textContent = "Done ✔ Polished with AI.";
+  } catch (err) {
+    console.error(err);
+    statusMessage.textContent =
+      "Something went wrong talking to the AI. Please try again.";
+  } finally {
+    setLoading(false);
+  }
 });
 
 copyButton.addEventListener("click", async () => {
