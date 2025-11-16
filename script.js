@@ -11,7 +11,7 @@ let selectedMode = "standard";
 window.addEventListener("load", () => {
   if (inputEl) {
     inputEl.focus();
-    inputEl.select(); // optional: highlight any existing text
+    inputEl.select(); // highlight any existing text
   }
 });
 
@@ -67,11 +67,17 @@ polishButton.addEventListener("click", async () => {
     }
 
     const data = await response.json();
-    if (data && data.polished) {
-      outputEl.value = data.polished;
+    console.log("API response:", data);
+
+    // Accept multiple possible shapes from the backend
+    const polishedText =
+      (data && (data.polished || data.polishedPrompt || data.output)) || "";
+
+    if (polishedText) {
+      outputEl.value = polishedText;
       setStatus("Done ✔ Your prompt is polished.");
     } else {
-      console.error("Unexpected API response:", data);
+      console.error("Unexpected API response shape:", data);
       setStatus("The AI responded, but in an unexpected format.");
     }
   } catch (err) {
