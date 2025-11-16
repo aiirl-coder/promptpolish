@@ -3,67 +3,98 @@ const outputEl = document.getElementById("outputPrompt");
 const polishButton = document.getElementById("polishButton");
 const copyButton = document.getElementById("copyButton");
 const statusMessage = document.getElementById("statusMessage");
+const modePills = document.querySelectorAll(".mode-pill");
 
-function setLoading(isLoading) {
-  polishButton.disabled = isLoading;
-  polishButton.textContent = isLoading ? "Polishing…" : "Polish my prompt";
-}
+let selectedMode = "standard";
 
-async function callPolishAPI(rawPrompt) {
-  const response = await fetch("/api/polish", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ prompt: rawPrompt }),
-  });
-
-  if (!response.ok) {
-    const data = await response.json().catch(() => ({}));
-    const msg = data.error || "Unknown error from server.";
-    throw new Error(msg);
+/* AUTO-FOCUS THE MESSY PROMPT BOX ON PAGE LOAD */
+window.addEventListener("load", () => {
+  if (inputEl) {
+    inputEl.focus();
+    inputEl.select(); // optional: highlight any existing text
   }
+});
 
-  const data = await response.json();
-  return data.polishedPrompt;
+// Mode pill behaviour
+modePills.forEach((pill) => {
+  pill.addEventListener("click", () => {
+    selectedMode = pill.dataset.mode || "standard";
+
+    modePills.forEach((btn) => {
+      const isActive = btn === pill;
+      btn.classList.toggle("active", isActive);
+      btn.setAttribute("aria-checked", isActive ? "true" : "false");
+    });
+  });
+});
+
+// Helper to display status text
+function setStatus(message) {
+  if (statusMessage) {
+    statusMessage.textContent = message;
+  }
 }
 
+// Call the API to polish the prompt
 polishButton.addEventListener("click", async () => {
   const raw = inputEl.value.trim();
 
   if (!raw) {
-    statusMessage.textContent = "Please paste a prompt to polish.";
+    setStatus("Please paste a prompt to polish.");
     return;
   }
 
-  setLoading(true);
-  statusMessage.textContent = "Calling PromptPolish AI…";
+  setStatus("Polishing your prompt with AI…");
+  polishButton.disabled = true;
+  outputEl.value = "";
 
   try {
-    const polished = await callPolishAPI(raw);
-    outputEl.value = polished;
-    statusMessage.textContent = "Done ✔ Polished with AI.";
+    const response = await fetch("/api/polish", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        prompt: raw,
+        mode: selectedMode,
+      }),
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      console.error("API error:", response.status, text);
+      throw new Error(`API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    if (data && data.polished) {
+      outputEl.value = data.polished;
+      setStatus("Done ✔ Your prompt is polished.");
+    } else {
+      console.error("Unexpected API response:", data);
+      setStatus("The AI responded, but in an unexpected format.");
+    }
   } catch (err) {
     console.error(err);
-    statusMessage.textContent =
-      "Something went wrong talking to the AI. Please try again.";
+    setStatus("Something went wrong talking to the AI. Please try again.");
   } finally {
-    setLoading(false);
+    polishButton.disabled = false;
   }
 });
 
+// Copy polished text
 copyButton.addEventListener("click", async () => {
   const text = outputEl.value.trim();
   if (!text) {
-    statusMessage.textContent = "Nothing to copy yet.";
+    setStatus("Nothing to copy yet.");
     return;
   }
 
   try {
     await navigator.clipboard.writeText(text);
-    statusMessage.textContent = "Copied polished prompt to clipboard ✔";
+    setStatus("Copied polished prompt to clipboard ✔");
   } catch (err) {
     console.error(err);
-    statusMessage.textContent = "Could not copy. Please copy manually.";
+    setStatus("Could not copy. Please copy manually.");
   }
 });
