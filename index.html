@@ -1,41 +1,137 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <title>PromptPolish</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <link rel="stylesheet" href="style.css" />
-</head>
-<body>
-  <div class="page">
-    <header class="hero">
-      <h1>PromptPolish</h1>
-      <p>Turn messy thoughts into clean, copy-ready prompts.</p>
-    </header>
+  <head>
+    <meta charset="UTF-8" />
+    <title>PromptPolish</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="frame">
+      <div class="shell">
+        <div class="layout">
+          <!-- MAIN CONTENT COLUMN -->
+          <div class="page">
+            <!-- SECTION 1: HEADER -->
+            <header class="hero">
+              <h1>PromptPolish</h1>
+              <p>Turn messy thoughts into clean, copy-ready prompts.</p>
+            </header>
 
-    <main class="main">
-      <section class="panel">
-        <h2>Your messy prompt</h2>
-        <textarea id="inputPrompt" placeholder="Paste your unstructured prompt here..."></textarea>
-      </section>
+            <!-- SECTION 2: MESSY PROMPT CARD -->
+            <section class="card card--input">
+              <h2>Your messy prompt</h2>
+              <p class="card-subtitle">
+                Choose a mode, paste your prompt, then click
+                <strong>Polish my prompt</strong>.
+              </p>
 
-      <section class="controls">
-        <button id="polishButton">Polish my prompt</button>
-      </section>
+              <div
+                class="mode-bar"
+                role="radiogroup"
+                aria-label="Choose a polishing mode"
+              >
+                <button
+                  class="mode-pill active"
+                  data-mode="standard"
+                  role="radio"
+                  aria-checked="true"
+                >
+                  Standard Polish
+                </button>
+                <button
+                  class="mode-pill"
+                  data-mode="task"
+                  role="radio"
+                  aria-checked="false"
+                >
+                  Task Definition
+                </button>
+                <button
+                  class="mode-pill"
+                  data-mode="business_case"
+                  role="radio"
+                  aria-checked="false"
+                >
+                  Business Case Builder
+                </button>
+                <button
+                  class="mode-pill"
+                  data-mode="kb_doc"
+                  role="radio"
+                  aria-checked="false"
+                >
+                  Knowledge Base Doc
+                </button>
+                <button
+                  class="mode-pill"
+                  data-mode="project_plan"
+                  role="radio"
+                  aria-checked="false"
+                >
+                  Project Planner
+                </button>
+                <button
+                  class="mode-pill"
+                  data-mode="sql_builder"
+                  role="radio"
+                  aria-checked="false"
+                >
+                  SQL Builder
+                </button>
+              </div>
 
-      <section class="panel">
-        <h2>Polished prompt</h2>
-        <textarea id="outputPrompt" placeholder="Your polished prompt will appear here..." readonly></textarea>
-        <button id="copyButton">Copy polished prompt</button>
-        <p class="status" id="statusMessage"></p>
-      </section>
-    </main>
+              <textarea
+                id="inputPrompt"
+                placeholder="Paste your unstructured prompt here..."
+              ></textarea>
 
-    <footer class="footer">
-      <p>Built with ✨ by Arran · promptpolish.net</p>
-    </footer>
-  </div>
+              <div class="controls">
+                <button id="polishButton">Polish my prompt</button>
+              </div>
+              <p id="statusMessage" class="status" role="status" aria-live="polite"></p>
+            </section>
 
-  <script src="script.js"></script>
-</body>
+            <!-- SECTION 3: POLISHED PROMPT CARD -->
+            <section class="card card--output">
+              <h2>Polished prompt</h2>
+              <p class="card-subtitle">
+                Copy this into ChatGPT or your favourite LLM.
+              </p>
+
+              <textarea
+                id="outputPrompt"
+                placeholder="Your polished prompt will appear here..."
+                readonly
+              ></textarea>
+
+              <div class="controls">
+                <button id="copyButton">Copy polished prompt</button>
+              </div>
+            </section>
+
+            <footer class="footer">
+              <p>
+                Built with ✨ by Arran —
+                <a href="https://promptpolish.net">promptpolish.net</a>
+              </p>
+            </footer>
+          </div>
+
+          <!-- SIDEBAR / BANNER AD COLUMN -->
+          <aside class="sidebar">
+            <div class="ad-card">
+              <span class="ad-label">Ad space</span>
+              <p>
+                Reserve this area for a banner ad, affiliate link, or “Buy Me a
+                Coffee” widget.
+              </p>
+            </div>
+          </aside>
+        </div>
+      </div>
+    </div>
+
+    <script src="script.js" defer></script>
+  </body>
 </html>
