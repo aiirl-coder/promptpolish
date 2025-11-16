@@ -1,106 +1,106 @@
-const inputEl = document.getElementById("inputPrompt");
-const outputEl = document.getElementById("outputPrompt");
-const polishButton = document.getElementById("polishButton");
-const copyButton = document.getElementById("copyButton");
-const statusMessage = document.getElementById("statusMessage");
-const modePills = document.querySelectorAll(".mode-pill");
+// script.js
 
-let selectedMode = "standard";
+document.addEventListener("DOMContentLoaded", () => {
+  const inputEl = document.getElementById("inputPrompt");
+  const outputEl = document.getElementById("outputPrompt");
+  const polishButton = document.getElementById("polishButton");
+  const copyButton = document.getElementById("copyButton");
+  const statusMessage = document.getElementById("statusMessage");
+  const modeButtons = document.querySelectorAll("[data-mode]");
 
-/* AUTO-FOCUS THE MESSY PROMPT BOX ON PAGE LOAD */
-window.addEventListener("load", () => {
+  // Default mode
+  let currentMode = "standard";
+
+  // Auto-focus the messy prompt box on load
   if (inputEl) {
     inputEl.focus();
-    inputEl.select(); // highlight any existing text
   }
-});
 
-// Mode pill behaviour
-modePills.forEach((pill) => {
-  pill.addEventListener("click", () => {
-    selectedMode = pill.dataset.mode || "standard";
-
-    modePills.forEach((btn) => {
-      const isActive = btn === pill;
-      btn.classList.toggle("active", isActive);
-      btn.setAttribute("aria-checked", isActive ? "true" : "false");
+  // Handle mode pill selection
+  modeButtons.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      modeButtons.forEach((b) => b.classList.remove("mode-pill--active"));
+      btn.classList.add("mode-pill--active");
+      currentMode = btn.dataset.mode || "standard";
     });
   });
-});
 
-// Helper to display status text
-function setStatus(message) {
-  if (statusMessage) {
-    statusMessage.textContent = message;
-  }
-}
+  // Main "Polish my prompt" handler
+  polishButton.addEventListener("click", async () => {
+    const raw = inputEl.value.trim();
 
-// Call the API to polish the prompt
-polishButton.addEventListener("click", async () => {
-  const raw = inputEl.value.trim();
-
-  if (!raw) {
-    setStatus("Please paste a prompt to polish.");
-    return;
-  }
-
-  setStatus("Polishing your prompt with AI…");
-  polishButton.disabled = true;
-  outputEl.value = "";
-
-  try {
-    const response = await fetch("/api/polish", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        prompt: raw,
-        mode: selectedMode,
-      }),
-    });
-
-    if (!response.ok) {
-      const text = await response.text();
-      console.error("API error:", response.status, text);
-      throw new Error(`API error: ${response.status}`);
+    if (!raw) {
+      statusMessage.textContent = "Please paste a prompt to polish.";
+      return;
     }
 
-    const data = await response.json();
-    console.log("API response:", data);
+    polishButton.disabled = true;
+    statusMessage.textContent = "Polishing your prompt with AI…";
 
-    // Accept multiple possible shapes from the backend
-    const polishedText =
-      (data && (data.polished || data.polishedPrompt || data.output)) || "";
+    try {
+      const res = await fetch("/api/polish", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          prompt: raw,
+          mode: currentMode,
+        }),
+      });
 
-    if (polishedText) {
-      outputEl.value = polishedText;
-      setStatus("Done ✔ Your prompt is polished.");
-    } else {
-      console.error("Unexpected API response shape:", data);
-      setStatus("The AI responded, but in an unexpected format.");
+      let data = null;
+      try {
+        data = await res.json();
+      } catch (parseErr) {
+        console.error("Error parsing JSON from /api/polish:", parseErr);
+      }
+
+      if (!res.ok) {
+        const msg =
+          data?.error ||
+          `The AI request failed (status ${res.status}). Please try again.`;
+        statusMessage.textContent = msg;
+        console.error("API error payload:", data);
+        return;
+      }
+
+      if (!data || typeof data.polishedPrompt !== "string") {
+        statusMessage.textContent =
+          "The AI responded, but in an unexpected format.";
+        console.error("Unexpected API response shape:", data);
+        return;
+      }
+
+      // Success
+      outputEl.value = data.polishedPrompt;
+      statusMessage.textContent =
+        "Done. Copy this into ChatGPT or your favourite LLM.";
+    } catch (err) {
+      console.error("Network/JS error talking to /api/polish:", err);
+      statusMessage.textContent =
+        "Something went wrong talking to the AI. Please try again.";
+    } finally {
+      polishButton.disabled = false;
     }
-  } catch (err) {
-    console.error(err);
-    setStatus("Something went wrong talking to the AI. Please try again.");
-  } finally {
-    polishButton.disabled = false;
-  }
-});
+  });
 
-// Copy polished text
-copyButton.addEventListener("click", async () => {
-  const text = outputEl.value.trim();
-  if (!text) {
-    setStatus("Nothing to copy yet.");
-    return;
-  }
+  // Copy polished prompt
+  copyButton.addEventListener("click", async () => {
+    const text = outputEl.value.trim();
 
-  try {
-    await navigator.clipboard.writeText(text);
-    setStatus("Copied polished prompt to clipboard ✔");
-  } catch (err) {
-    console.error(err);
-    setStatus("Could not copy. Please copy manually.");
-  }
+    if (!text) {
+      statusMessage.textContent = "Nothing to copy yet.";
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(text);
+      statusMessage.textContent = "Copied polished prompt to clipboard ✔";
+    } catch (err) {
+      console.error("Clipboard error:", err);
+      statusMessage.textContent =
+        "Could not copy automatically. Please copy manually.";
+    }
+  });
 });
