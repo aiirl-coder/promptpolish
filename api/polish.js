@@ -1,179 +1,247 @@
-import OpenAI from "openai";
+// api/polish.js
 
-const client = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-
-// Different polishing modes
+// Map of modes → short instruction + preferred headings
 const MODE_CONFIG = {
   standard: {
     label: "Standard Polish",
-    instructions: `
-You take a messy user prompt and turn it into a clean, copy-ready prompt.
+    system: `You are PromptPolish, a tool that rewrites messy user prompts into clean, copy-ready prompts for LLMs.
 
-Output a markdown prompt with these headings:
+Rules:
+- Keep the user’s intent exactly the same.
+- Remove fluff and repetition.
+- Add structure with clear markdown headings and bullet points.
+- Add clarifying questions only if absolutely necessary.
+- Keep it concise but powerful.`,
 
-## Goal
-## Context
-## Constraints
-## Output format
-## Additional notes
-
-Fill in each section clearly and concisely. Infer reasonable structure where needed, but do not invent facts that contradict the user's text.`,
+    headings: [
+      "## Goal",
+      "## Context",
+      "## Constraints",
+      "## Output format",
+    ],
   },
+
   task: {
     label: "Task Definition",
-    instructions: `
-Turn the messy user text into a clear task brief for an AI assistant.
+    system: `You are PromptPolish, specialising in turning vague requests into crystal-clear tasks for an AI assistant.
 
-Output a markdown prompt with:
+Rules:
+- Convert the user input into a clear, actionable task description.
+- Identify the primary objective and key sub-tasks.
+- Clarify inputs, outputs, constraints, and success criteria.
+- Use markdown headings and bullet points.
+- Do NOT write the final answer to the task; only define the task for the LLM.`,
 
-## Task
-## Inputs
-## Outputs
-## Steps
-## Constraints
-## Definition of done`,
+    headings: [
+      "## Primary objective",
+      "## Sub-tasks",
+      "## Inputs & assumptions",
+      "## Constraints",
+      "## Definition of done",
+    ],
   },
+
   business: {
     label: "Business Case Builder",
-    instructions: `
-Turn the messy user text into a structured business case.
+    system: `You are PromptPolish, specialising in business case prompts.
 
-Output a markdown prompt with:
+Rules:
+- Turn the user input into a structured business case brief for an LLM.
+- Include problem, opportunity, options, benefits, risks, and required outputs.
+- Use markdown headings and bullet points.
+- Do NOT write the actual business case; only the prompt that asks the LLM to do so.`,
 
-## Problem / Opportunity
-## Desired outcome
-## Proposed solution
-## Benefits and impact
-## Risks and assumptions
-## Success metrics
-## Constraints and dependencies`,
+    headings: [
+      "## Problem / opportunity",
+      "## Objectives",
+      "## Options to consider",
+      "## Benefits & value",
+      "## Risks & dependencies",
+      "## Required output",
+    ],
   },
+
   kb: {
-    label: "Knowledge Base Doc",
-    instructions: `
-Turn the messy user text into a knowledge-base style article prompt.
+    label: "Knowledge Base Documentation",
+    system: `You are PromptPolish, specialising in knowledge base documentation prompts.
 
-Output a markdown prompt with:
+Rules:
+- Turn the user’s messy notes into a clean prompt that instructs an LLM to write a KB article.
+- Emphasise audience, purpose, prerequisites, steps, and troubleshooting.
+- Use markdown headings and bullet points.
+- Do NOT write the actual article; only the prompt that asks the LLM to do so.`,
 
-## Article title
-## Audience
-## Purpose
-## Preconditions / prerequisites
-## Step-by-step process
-## Edge cases and FAQs
-## Examples / notes`,
+    headings: [
+      "## Article goal & audience",
+      "## Context / background",
+      "## Preconditions / prerequisites",
+      "## Key steps or process",
+      "## Edge cases",
+      "## Troubleshooting",
+      "## Required output style",
+    ],
   },
+
   project: {
     label: "Project Planner",
-    instructions: `
-Turn the messy user text into a project planning prompt.
+    system: `You are PromptPolish, specialising in project planning prompts.
 
-Output a markdown prompt with:
+Rules:
+- Turn the user input into a project-planning prompt for an LLM.
+- Capture scope, goals, stakeholders, milestones, risks, and outputs.
+- Use markdown headings and bullet points.
+- Do NOT plan the project yourself; only define the prompt.`,
 
-## Objective
-## Scope
-## Deliverables
-## Milestones & timeline
-## Roles & stakeholders
-## Risks & mitigations
-## Success criteria`,
+    headings: [
+      "## Project goal",
+      "## Scope & boundaries",
+      "## Stakeholders",
+      "## Key milestones",
+      "## Risks & dependencies",
+      "## Required output",
+    ],
   },
+
   sql: {
     label: "SQL Builder",
-    instructions: `
-Turn the messy user text into a prompt that will guide an LLM to write SQL.
+    system: `You are PromptPolish, specialising in prompts that help LLMs generate SQL.
 
-Output a markdown prompt with:
+Rules:
+- Turn the user’s description of the data problem into a precise SQL-builder prompt.
+- Capture tables, columns, relationships, filters, aggregations, edge cases, and output format.
+- Encourage the LLM to ask for missing schema details if needed.
+- Use markdown headings and bullet points.
+- Do NOT write SQL yourself; only craft the prompt that tells the LLM how to write the SQL.`,
 
-## Goal
-## Source tables and relevant columns
-## Filters and conditions
-## Joins
-## Aggregations & groupings
-## Output columns, ordering & limits
-## Edge cases and data quality notes
-
-Make sure the instructions are precise about tables, columns, filters, and expected output.`,
+    headings: [
+      "## Goal",
+      "## Available tables & columns",
+      "## Filters & conditions",
+      "## Aggregations / grouping",
+      "## Edge cases / data quality",
+      "## Output format",
+    ],
   },
 };
 
-const BASE_INSTRUCTIONS = `
-You are PromptPolish, a prompt-engineering assistant.
-You NEVER answer the user's question directly.
-Instead, you rewrite their messy text into a structured prompt for another LLM.
-Use clear English, concise bullet points where helpful, and markdown headings as requested.
-`;
-
-// Vercel/Next.js API route
 export default async function handler(req, res) {
+  // Only allow POST
   if (req.method !== "POST") {
-    res.setHeader("Allow", ["POST"]);
-    return res.status(405).json({ error: "Method not allowed" });
+    res.statusCode = 405;
+    res.setHeader("Content-Type", "application/json");
+    return res.end(JSON.stringify({ error: "Method not allowed" }));
   }
-
-  // Safely parse body (Vercel sometimes gives string, sometimes object)
-  let body = req.body;
-  if (!body || typeof body === "string") {
-    try {
-      body = JSON.parse(body || "{}");
-    } catch (err) {
-      return res.status(400).json({ error: "Invalid JSON body" });
-    }
-  }
-
-  const { rawPrompt, mode } = body || {};
-
-  if (!rawPrompt || typeof rawPrompt !== "string") {
-    return res.status(400).json({ error: "Missing rawPrompt in request body" });
-  }
-
-  const modeKey = MODE_CONFIG[mode] ? mode : "standard";
-  const config = MODE_CONFIG[modeKey];
-
-  const systemMessage = `
-${BASE_INSTRUCTIONS}
-
-Current mode: ${config.label}.
-${config.instructions}
-`.trim();
 
   try {
-    const completion = await client.chat.completions.create({
-      model: "gpt-4o-mini", // cheap, good general model
-      temperature: 0.4,
-      messages: [
-        { role: "system", content: systemMessage },
-        {
-          role: "user",
-          content: `Here is the messy user prompt. Rewrite it as instructed.\n\n${rawPrompt}`,
-        },
-      ],
+    // --- Parse JSON body safely (Node serverless doesn't do this for us) ---
+    let rawBody = "";
+    for await (const chunk of req) {
+      rawBody += chunk;
+    }
+
+    let body = {};
+    if (rawBody) {
+      try {
+        body = JSON.parse(rawBody);
+      } catch (e) {
+        console.error("Failed to parse JSON body:", e, rawBody);
+        throw new Error("Invalid JSON body");
+      }
+    }
+
+    const { rawPrompt, mode } = body || {};
+
+    if (!rawPrompt || typeof rawPrompt !== "string") {
+      throw new Error("Missing or invalid 'rawPrompt' in request body.");
+    }
+
+    const modeKey = mode || "standard";
+    const config = MODE_CONFIG[modeKey];
+
+    if (!config) {
+      throw new Error(`Unknown mode '${modeKey}'.`);
+    }
+
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+      throw new Error(
+        "OPENAI_API_KEY is not set in environment variables on Vercel."
+      );
+    }
+
+    // Build the system prompt for this mode
+    const systemPrompt = `${config.system}
+
+Always structure your final answer using these markdown headings (only if they make sense):
+
+${config.headings.join("\n")}
+
+Return ONLY the polished prompt. Do not add commentary or notes outside the prompt.`;
+
+    // --- Call OpenAI Responses API ---
+    const openaiRes = await fetch("https://api.openai.com/v1/responses", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "gpt-4.1-mini",
+        input: [
+          {
+            role: "system",
+            content: systemPrompt,
+          },
+          {
+            role: "user",
+            content: rawPrompt,
+          },
+        ],
+      }),
     });
 
+    const data = await openaiRes.json().catch(() => ({}));
+
+    if (!openaiRes.ok) {
+      console.error("OpenAI API error:", openaiRes.status, data);
+      res.statusCode = openaiRes.status || 500;
+      res.setHeader("Content-Type", "application/json");
+      return res.end(
+        JSON.stringify({
+          error:
+            data?.error?.message ||
+            `OpenAI API error (status ${openaiRes.status})`,
+        })
+      );
+    }
+
+    // Extract the text from the Responses API shape
     const polished =
-      completion.choices?.[0]?.message?.content?.trim() ||
-      "Sorry, I couldn't generate a polished prompt.";
+      data?.output?.[0]?.content?.[0]?.text ||
+      data?.output_text ||
+      "";
 
-    return res.status(200).json({ polished });
+    if (!polished) {
+      console.error("Unexpected OpenAI response shape:", data);
+      throw new Error("The AI responded, but in an unexpected format.");
+    }
+
+    // Success
+    res.statusCode = 200;
+    res.setHeader("Content-Type", "application/json");
+    return res.end(JSON.stringify({ polished }));
   } catch (err) {
-    // Log as much as possible for debugging in Vercel logs
-    console.error("OpenAI API error:", err?.response?.data || err);
+    console.error("polish handler crashed:", err);
 
-    const status =
-      err?.status ||
-      err?.response?.status ||
-      500;
-
-    const details =
-      err?.response?.data?.error?.message ||
-      err?.message ||
-      "Unknown error from OpenAI";
-
-    return res.status(status >= 400 && status < 600 ? status : 500).json({
-      error: "OpenAI API error",
-      details,
-    });
+    res.statusCode = 500;
+    res.setHeader("Content-Type", "application/json");
+    return res.end(
+      JSON.stringify({
+        error:
+          err && err.message
+            ? err.message
+            : "Unexpected server error in /api/polish.",
+      })
+    );
   }
 }
