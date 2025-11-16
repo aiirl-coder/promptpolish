@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>PromptPolish</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="page">
+    <header class="hero">
+      <h1>PromptPolish</h1>
+      <p>Turn messy thoughts into clean, copy-ready prompts.</p>
+    </header>
+
+    <main class="main">
+      <section class="panel">
+        <h2>Your messy prompt</h2>
+        <textarea id="inputPrompt" placeholder="Paste your unstructured prompt here..."></textarea>
+      </section>
+
+      <section class="controls">
+        <button id="polishButton">Polish my prompt</button>
+      </section>
+
+      <section class="panel">
+        <h2>Polished prompt</h2>
+        <textarea id="outputPrompt" placeholder="Your polished prompt will appear here..." readonly></textarea>
+        <button id="copyButton">Copy polished prompt</button>
+        <p class="status" id="statusMessage"></p>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <p>Built with ✨ by Arran · promptpolish.net</p>
+    </footer>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
