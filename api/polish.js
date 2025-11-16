@@ -2,10 +2,10 @@
 // Vercel serverless function to call the OpenAI Chat Completions API
 // and turn a messy prompt into a structured markdown prompt.
 
-const MODEL = "gpt-5.1-mini"; // You can change this to any chat model you prefer.
+const MODEL = "gpt-4.1-mini"; // fast + cheap, ideal for formatting tasks
 
 export default async function handler(req, res) {
-  // Only allow POST
+  // Allow only POST requests
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
     return res.status(405).json({ error: "Method not allowed. Use POST." });
@@ -33,7 +33,7 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: "Missing 'prompt' in request body." });
   }
 
-  // Optional: basic length guardrail
+  // Simple length guardrail
   const MAX_CHARS = 6000;
   if (promptText.length > MAX_CHARS) {
     promptText = promptText.slice(0, MAX_CHARS);
@@ -90,4 +90,12 @@ export default async function handler(req, res) {
       console.error("No content in OpenAI response:", data);
       return res
         .status(500)
-        .json({ error: "
+        .json({ error: "OpenAI returned an empty response." });
+    }
+
+    return res.status(200).json({ polishedPrompt: content });
+  } catch (err) {
+    console.error("Unexpected error calling OpenAI:", err);
+    return res.status(500).json({ error: "Unexpected server error." });
+  }
+}
